@@ -1,8 +1,8 @@
 import json
 import time
 from typing import Any
-from main.connection import Connection
-from main.peer import Peer
+from core.connection import Connection
+from core.peer import Peer
 
 class MessageHandler:
     """

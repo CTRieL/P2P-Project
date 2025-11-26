@@ -2,8 +2,8 @@ import socket
 import threading
 import uuid
 from typing import Dict, Optional
-from main.connection import Connection, recv_message_with_length, send_with_length
-from main.message_handler import MessageHandler
+from core.connection import Connection, recv_message_with_length, send_with_length
+from core.message_handler import MessageHandler
 
 
 class Peer:

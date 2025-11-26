@@ -4,9 +4,9 @@ import struct
 import json
 import queue
 from typing import Optional
-from main.peer import Peer
-from main.message_handler import MessageHandler
-from main.encryption.hybrid_crypto import encrypt_message, decrypt_message # in proggress
+from core.peer import Peer
+from core.message_handler import MessageHandler
+from core.encryption.hybrid_crypto import encrypt_message, decrypt_message
 
 LENGTH_PREFIX_FORMAT = "!I" #network byte order unsigned int (4 bytes)
 
@@ -79,8 +79,8 @@ class Connection:
             pass
         try:
             self.sock.close()
-        except Exception:
-            pass
+        except Exception as e:
+            self.local_peer.logger and self.local_peer.logger(f"Close error: {e}")
         
     #-------------------- sending --------------------------------------
     def _send_loop(self):
@@ -120,7 +120,6 @@ class Connection:
         send_with_length(self.sock, json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode())
         #doo not queue via send_queue! handshake is unencrypted so remote can read it before learn their key
         
-    
     # -------------------------- recevie ------------------------
     def _receive_loop(self):
         while self.alive:
