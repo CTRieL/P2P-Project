@@ -1,5 +1,4 @@
-import threading
-import time
+import os
 import sys
 from p2p.p2p import P2PMessenger
 
@@ -16,6 +15,9 @@ def main():
     
     if verbose_mode:
         print("[!] Mode Verbose aktif!")
+        
+    if not os.path.exists('downloads'):
+        os.makedirs('downloads')
         
     print("=== P2P Messenger ===")
     app = P2PMessenger(int(sys.argv[1]), sys.argv[2], verbose=verbose_mode)
