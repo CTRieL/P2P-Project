@@ -5,12 +5,11 @@ import socket
 import struct
 import sys
 import threading
-from cryptography.fernet import Fernet
 
 from p2p.discovery import DiscoveryService
 from security import SecurityManager
 from config import BUFFER_SIZE
-from utils import Colors
+from utils import TxtColors
 
 class P2PMessenger:
     def __init__(self, port, username, verbose=False, callback=None) :
@@ -23,11 +22,10 @@ class P2PMessenger:
 
         #state koneksi
         self.connected_peer_socket = None
-        self.peer_fernet = None #diisi setelah handshake
         self.peer_name = None
 
     def start(self):
-        print(f"{Colors.HEADER}[*] Memulai node P2P pada port {self.port}...{Colors.ENDC}")
+        print(f"{TxtColors.HEADER}[*] Memulai node P2P pada port {self.port}...{TxtColors.ENDC}")
         self.discovery.start()
 
         server_thread = threading.Thread(target=self.tcp_listener, daemon=True)
@@ -37,7 +35,7 @@ class P2PMessenger:
         
     def start_threads_only(self):
         """Menjalankan komponen background tanpa masuk ke input loop untuk GUI"""
-        print(f"{Colors.HEADER}[*] Memulai node P2P pada port {self.port}...{Colors.ENDC}")
+        print(f"{TxtColors.HEADER}[*] Memulai node P2P pada port {self.port}...{TxtColors.ENDC}")
         self.discovery.start()
 
         server_thread = threading.Thread(target=self.tcp_listener, daemon=True)
@@ -73,11 +71,11 @@ class P2PMessenger:
                 elif packet['type'] == 'HANDSHAKE_FIN':
                     enc_sess_key = bytes.fromhex(packet['session_key'])
                     sess_key = self.security.decrypt_with_my_private(enc_sess_key)
-                    self.peer_fernet = Fernet(sess_key)
+                    self.security.set_session_key(sess_key)
                     self.peer_name = packet['username']
                     self.connected_peer_socket = client_sock
                     
-                    print(f"\n{Colors.GREEN}[*] Terhubung dengan {packet['username']}{Colors.ENDC}")
+                    print(f"\n{TxtColors.GREEN}[*] Terhubung dengan {packet['username']}{TxtColors.ENDC}")
                     print(f"{self.username}: ", end="", flush=True)
                     
                     if self.callback:
@@ -85,32 +83,31 @@ class P2PMessenger:
                     
                 elif packet['type'] == 'MESSAGE':
                     encrypted_msg = packet['content']
-                    msg = self.peer_fernet.decrypt(encrypted_msg.encode()).decode()
+                    msg = self.security.decrypt_chat(encrypted_msg).decode('utf-8')
 
-                    print(f"\n{Colors.BLUE}[{packet['sender']}]: {msg}{Colors.ENDC}")
+                    print(f"\n{TxtColors.BLUE}[{packet['sender']}]: {msg}{TxtColors.ENDC}")
                     print(f"{self.username}: ", end="", flush=True)
                     
                     if self.callback:
                         self.callback("MESSAGE", {"sender" : packet['sender'], "text": msg})
                 
                 elif packet['type'] == 'FILE':
-                    print(f"\n{Colors.BLUE}[*] Menerima file: {packet['filename']}...{Colors.ENDC}")
+                    print(f"\n{TxtColors.BLUE}[*] Menerima file: {packet['filename']}...{TxtColors.ENDC}")
                     enc_content_b64 = packet['content']
-                    enc_bytes = base64.b64decode(enc_content_b64)
-                    file_bytes = self.peer_fernet.decrypt(enc_bytes)
+                    file_bytes = self.security.decrypt_chat(enc_content_b64)
 
                     filepath = os.path.join("downloads", f"received_{packet['filename']}")
                     with open(filepath, 'wb') as f:
                         f.write(file_bytes)
 
-                    print(f"{Colors.GREEN}[V] File tersimpan di: {filepath}{Colors.ENDC}")
+                    print(f"{TxtColors.GREEN}[V] File tersimpan di: {filepath}{TxtColors.ENDC}")
                     print(f"{self.username}: ", end="", flush=True)
                     
                     if self.callback:
                         self.callback("FILE", {"sender" : packet['sender'], "filename": packet['filename']})                
                 
                 elif packet['type'] == 'DISCONNECT':
-                    print(f"\n{Colors.FAIL}[!] {packet['sender']} memutus koneksi{Colors.ENDC}")
+                    print(f"\n{TxtColors.FAIL}[!] {packet['sender']} memutus koneksi{TxtColors.ENDC}")
                     self.reset_connection()
                     
                     if self.callback:
@@ -118,7 +115,7 @@ class P2PMessenger:
                     break
                     
         except Exception as e:
-            print(f"\n{Colors.FAIL}[!] Error Koneksi: {e}{Colors.ENDC}")
+            print(f"\n{TxtColors.FAIL}[!] Error Koneksi: {e}{TxtColors.ENDC}")
             print(f"{self.username}: ", end="", flush=True)
         finally:
             self.reset_connection()
@@ -150,17 +147,16 @@ class P2PMessenger:
                 "username": self.username,
             })
 
-            self.peer_fernet = self.security.fernet #pakai key sendiri
             self.connected_peer_socket = sock
             
-            print(f"{Colors.GREEN}[*] Terhubung dengan {target_ip}:{target_port}{Colors.ENDC}")
+            print(f"{TxtColors.GREEN}[*] Terhubung dengan {target_ip}:{target_port}{TxtColors.ENDC}")
             if self.callback:
                 self.callback("CONNECTED", f"{target_ip}:{target_port}")
 
             threading.Thread(target=self.handle_client, args=(sock,), daemon=True).start()
 
         except Exception as e:
-            print(f"{Colors.FAIL}[!] Gagal connect: {e}{Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[!] Gagal connect: {e}{TxtColors.ENDC}")
     
     def input_loop(self):
         if self.callback == None:
@@ -181,21 +177,21 @@ class P2PMessenger:
                 #/list
                 if cmd.lower() == 'list':
                     peers = self.discovery.get_active_peers()
-                    print(f"{Colors.HEADER}--- User Online ---{Colors.ENDC}")
+                    print(f"{TxtColors.HEADER}--- User Online ---{TxtColors.ENDC}")
                     if not peers: print("Belum ada user lain terdeteksi.")
                     for p in peers: print(p)
-                    print(f"{Colors.HEADER}-------------------{Colors.ENDC}")
+                    print(f"{TxtColors.HEADER}-------------------{TxtColors.ENDC}")
 
                 #/connect <IP> <PORT>
                 elif cmd.startswith('connect'):
                     if self.connected_peer_socket:
-                        print(f"{Colors.FAIL}[!] Anda harus disconnect dulu sebelum ganti teman!{Colors.ENDC}")
+                        print(f"{TxtColors.FAIL}[!] Anda harus disconnect dulu sebelum ganti teman!{TxtColors.ENDC}")
                         continue
                     try:
                         _, ip, port = cmd.split()
                         self.connect_to_peer(ip, port)
                     except:
-                        print(f"{Colors.GRAY}[!] Invalid Format : /connect <IP> <PORT>{Colors.ENDC}")
+                        print(f"{TxtColors.GRAY}[!] Invalid Format : /connect <IP> <PORT>{TxtColors.ENDC}")
 
                 # /sendfile <PATH>
                 elif cmd.startswith('sendfile'):
@@ -203,7 +199,7 @@ class P2PMessenger:
                         _, path = cmd.split(maxsplit=1)
                         self.send_file(path)
                     except ValueError:
-                        print(f"{Colors.GRAY}[!] Invalid Format: /sendfile <PATH>{Colors.ENDC}")
+                        print(f"{TxtColors.GRAY}[!] Invalid Format: /sendfile <PATH>{TxtColors.ENDC}")
                         
                 
                 # /disconnect
@@ -218,19 +214,9 @@ class P2PMessenger:
 
             # logika message
             elif self.connected_peer_socket:
-                if self.peer_fernet:
-                    encrypted_content = self.peer_fernet.encrypt(cmd.encode()).decode()
-                    try:
-                        self.send_packet(self.connected_peer_socket, {
-                            "type": "MESSAGE",
-                            "sender": self.username,
-                            "content": encrypted_content
-                        })
-                    except:
-                        print(f"{Colors.FAIL}[!] Gagal kirim. Koneksi putus.{Colors.ENDC}")
-                        self.reset_connection()
+                self.send_msg(cmd)
             else:
-                print(f"{Colors.GRAY}[!] Anda belum terhubung. Ketik '/list' lalu '/connect <IP> <PORT>'{Colors.ENDC}")
+                print(f"{TxtColors.GRAY}[!] Anda belum terhubung. Ketik '/list' lalu '/connect <IP> <PORT>'{TxtColors.ENDC}")
     
     def send_packet(self, sock, data_dict):
         """Helper mengirim panjang data lebih dahulu, lalu datanya"""
@@ -243,7 +229,7 @@ class P2PMessenger:
 
             sock.sendall(header + msg_json)
         except Exception as e:
-            print(f"{Colors.FAIL}[!] Gagal mengirim packet: {e}{Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[!] Gagal mengirim packet: {e}{TxtColors.ENDC}")
     
     def recv_packet(self, sock):
         """Helper membaca 4 bytes panjang, lalu baca isi datanya"""
@@ -269,22 +255,36 @@ class P2PMessenger:
         except Exception as e:
             return None
     
+    def send_msg(self, message):
+        if self.security.session_key:
+            encrypted_content = self.security.encrypt_chat(message)
+            try:
+                self.send_packet(self.connected_peer_socket, {
+                    "type": "MESSAGE",
+                    "sender": self.username,
+                    "content": encrypted_content
+                })
+            except:
+                print(f"{TxtColors.FAIL}[!] Gagal kirim. Koneksi putus.{TxtColors.ENDC}")
+                self.reset_connection()
+    
     def send_file(self, filepath):
         if not self.connected_peer_socket:
-            print(f"{Colors.FAIL}[!] Belum terhubung. {Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[!] Belum terhubung. {TxtColors.ENDC}")
             return
         if not os.path.exists(filepath):
-            print(f"{Colors.FAIL}[!] File tidak ditemukan. {Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[!] File tidak ditemukan. {TxtColors.ENDC}")
             return
         
         try: 
             filename = os.path.basename(filepath)
-            print(f"{Colors.GRAY}[*] Mengirim file {filename}{Colors.ENDC}")
+            print(f"{TxtColors.GRAY}[*] Mengirim file {filename}{TxtColors.ENDC}")
 
             with open(filepath, 'rb') as f:
                 file_bytes = f.read()
-            encrypted_bytes = self.peer_fernet.encrypt(file_bytes)
-            b64_content = base64.b64encode(encrypted_bytes).decode('utf-8')
+            
+            b64_content = self.security.encrypt_chat(file_bytes)
+            if not b64_content: return
             
             packet = {
                 "type" : "FILE",
@@ -294,10 +294,10 @@ class P2PMessenger:
             }
 
             self.send_packet(self.connected_peer_socket, packet)
-            print(f"{Colors.GREEN}[V] File Berhasil dikirim!{Colors.ENDC}")
+            print(f"{TxtColors.GREEN}[V] File Berhasil dikirim!{TxtColors.ENDC}")
 
         except Exception as e:
-            print(f"{Colors.FAIL}[!] Gagal kirim file: {e}{Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[!] Gagal kirim file: {e}{TxtColors.ENDC}")
     
     def log_debug(self, direction, data):
         """"Menampilkan data RAW JSON bila verbose aktif"""
@@ -306,9 +306,9 @@ class P2PMessenger:
             print(f"{prefix}:")
             try: 
                 parsed = json.loads(data) if isinstance(data, str) else json.loads(data.decode())
-                print(f"{Colors.WARNING}{json.dumps(parsed, indent=2)}{Colors.ENDC}")
+                print(f"{TxtColors.WARNING}{json.dumps(parsed, indent=2)}{TxtColors.ENDC}")
             except:
-                print(f"not json{Colors.WARNING}{data}{Colors.ENDC}")
+                print(f"not json{TxtColors.WARNING}{data}{TxtColors.ENDC}")
             print("-" * 30)
     
     def disconnect(self):
@@ -321,7 +321,7 @@ class P2PMessenger:
                 })
                 self.connected_peer_socket.close()
             except: pass
-            print(f"{Colors.FAIL}[*] Memutus koneksi.{Colors.ENDC}")
+            print(f"{TxtColors.FAIL}[*] Memutus koneksi.{TxtColors.ENDC}")
         self.reset_connection()
         
         if self.callback:
@@ -330,6 +330,5 @@ class P2PMessenger:
 
     def reset_connection(self):
         self.connected_peer_socket = None
-        self.peer_fernet = None
         self.peer_name = None
         # print("\n[*] Mode Standby (Listening). Ketik 'list' untuk cari teman.")

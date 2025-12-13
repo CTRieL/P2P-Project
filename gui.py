@@ -226,7 +226,7 @@ class ChatGUI:
         if not msg.strip(): return
         if self.messenger.connected_peer_socket:
             try:
-                encrypted = self.messenger.peer_fernet.encrypt(msg.encode()).decode()
+                encrypted = self.messenger.security.encrypt_chat(msg)
                 self.messenger.send_packet(self.messenger.connected_peer_socket, {
                     "type": "MESSAGE", "sender": self.messenger.username, "content": encrypted
                 })
