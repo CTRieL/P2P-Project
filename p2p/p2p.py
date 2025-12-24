@@ -1,4 +1,3 @@
-import base64
 import json
 import os
 import socket
@@ -7,9 +6,9 @@ import sys
 import threading
 
 from p2p.discovery import DiscoveryService
-from security import SecurityManager
-from config import BUFFER_SIZE
-from utils import TxtColors
+from p2p.security import SecurityManager
+from p2p.config import BUFFER_SIZE
+from p2p.utils import TxtColors
 
 class P2PMessenger:
     def __init__(self, port, username, verbose=False, callback=None) :
@@ -132,10 +131,7 @@ class P2PMessenger:
                 "username" : self.username,
             })
             
-            #terima public key teman
-            resp = self.recv_packet(BUFFER_SIZE)
-            self.log_debug("IN", resp)
-            
+            #terima public key teman          
             resp_json = self.recv_packet(sock)
             peer_pub_pem = resp_json['pubkey']
             
@@ -242,7 +238,7 @@ class P2PMessenger:
 
             data = b""
             while len(data) < msg_len:
-                chunk = sock.recv(min(4096, msg_len - len(data)))
+                chunk = sock.recv(min(BUFFER_SIZE, msg_len - len(data)))
                 if not chunk: break
                 data += chunk
             

@@ -144,10 +144,6 @@ class ChatGUI:
         style.configure("Sash", sashthickness=4, sashpad=0, handlepad=0)
 
     def configure_tags(self):
-        # [FIX] BUBBLE WIDTH ISSUE
-        # Jangan set 'background' di tag alignment (me/peer). Biarkan transparan.
-        # Warna background hanya dipasang di tag 'bubble_me'/'bubble_peer'.
-        
         self.chat_area.tag_config('me', justify='right', 
                                   rmargin=10, lmargin1=100) # Hapus background di sini
         

@@ -1,16 +1,15 @@
 import os
 import sys
 import threading
-import time
 
 from p2p.p2p import P2PMessenger
-from gui import ChatGUI
+from p2p.gui import ChatGUI
 
 def main():
     if len(sys.argv) < 3:
         print("invalid command: python app.py <PORT> <USERNAME> [OPTIONS]")
         print("Options:")
-        print("  -v, --debug    Aktifkan mode log raw")
+        print("  -v, --verbose    Aktifkan mode log raw")
         print("  --gui          Aktifkan mode GUI") 
         return
     
@@ -18,10 +17,10 @@ def main():
     username = sys.argv[2]
     verbose_mode = False
     gui_mode = False
-        
+
     verbose_mode = False
     if len(sys.argv) > 3:
-        if '-v' in sys.argv or '--debug' in sys.argv:
+        if '-v' in sys.argv or '--verbose' in sys.argv:
             print("[!] Mode verbose aktif!")
             verbose_mode = True
         if '--gui' in sys.argv:

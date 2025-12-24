@@ -3,8 +3,7 @@ import socket
 import threading
 import time
 
-from config import BROADCAST_PORT
-
+from p2p.config import BROADCAST_PORT
 
 class DiscoveryService:
     """Service untuk mencari teman di jaringan lokal (UDP Broadcast)"""
